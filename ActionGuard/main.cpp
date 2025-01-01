@@ -3,23 +3,22 @@
 #include <string>
 #include <vector>
 
-bool isFileMalicious(const std::wstring& fileName) {
-    // Example: Check if the file name contains "malware"
+bool basicretardedcheck(const std::wstring& fileName) {
     return fileName.find(L"malware") != std::wstring::npos;
 }
 
-void displayFileChangeInfo(const std::wstring& action, const std::wstring& fileName) {
+void filestatistics(const std::wstring& action, const std::wstring& fileName) {
     std::wstring extension = fileName.substr(fileName.find_last_of(L".") + 1);
     if (extension != L"exe" && extension != L"pdb" && extension != L"sln" && extension != L"txt") {
-        return; // Ignore files with extensions other than .exe, .pdb, .sln, .txt
+        return;
     }
     std::wcout << L"File " << fileName << L" has been " << action << L"." << std::endl;
-    if (isFileMalicious(fileName)) {
+    if (basicretardedcheck(fileName)) {
         std::wcout << L"Malicious file detected: " << fileName << L" [ % ]" << std::endl;
     }
 }
 
-void monitorDirectory(const std::wstring& directory) {
+void directorymonitoring(const std::wstring& directory) {
     HANDLE hDir = CreateFileW(
         directory.c_str(),
         FILE_LIST_DIRECTORY,
@@ -57,13 +56,12 @@ void monitorDirectory(const std::wstring& directory) {
             std::wstring fileName(fileInfo->FileName, fileInfo->FileNameLength / sizeof(wchar_t));
             switch (fileInfo->Action) {
             case FILE_ACTION_ADDED:
-                displayFileChangeInfo(L"created", fileName);
+                filestatistics(L"created", fileName);
                 break;
             case FILE_ACTION_MODIFIED:
-                displayFileChangeInfo(L"modified", fileName);
+                filestatistics(L"modified", fileName);
                 break;
             default:
-                // Ignore other actions
                 break;
             }
             fileInfo = reinterpret_cast<FILE_NOTIFY_INFORMATION*>(
@@ -74,7 +72,7 @@ void monitorDirectory(const std::wstring& directory) {
     CloseHandle(hDir);
 }
 
-DWORD WINAPI MonitorExecutions(LPVOID lpParam) {
+DWORD WINAPI passiverunninglogging(LPVOID lpParam) {
     const std::wstring& directory = *reinterpret_cast<const std::wstring*>(lpParam);
     HANDLE hDir = CreateFileW(
         directory.c_str(),
@@ -114,7 +112,7 @@ DWORD WINAPI MonitorExecutions(LPVOID lpParam) {
             FILE_NOTIFY_INFORMATION* fileInfo = reinterpret_cast<FILE_NOTIFY_INFORMATION*>(buffer);
             do {
                 std::wstring fileName(fileInfo->FileName, fileInfo->FileNameLength / sizeof(wchar_t));
-                displayFileChangeInfo(L"executed", fileName);
+                filestatistics(L"executed", fileName);
                 fileInfo = reinterpret_cast<FILE_NOTIFY_INFORMATION*>(
                     reinterpret_cast<BYTE*>(fileInfo) + fileInfo->NextEntryOffset);
             } while (fileInfo->NextEntryOffset != 0);
@@ -129,7 +127,7 @@ DWORD WINAPI MonitorExecutions(LPVOID lpParam) {
     return 0;
 }
 
-void monitorAllDrives() {
+void drivemonitoring() {
     DWORD drivesMask = GetLogicalDrives();
     std::vector<std::wstring> driveLetters;
     for (int i = 0; i < 26; ++i) {
@@ -141,22 +139,20 @@ void monitorAllDrives() {
 
     for (const auto& driveLetter : driveLetters) {
         std::wcout << L"Monitoring directory: " << driveLetter << std::endl;
-        monitorDirectory(driveLetter);
+        directorymonitoring(driveLetter);
     }
 }
 
 int main() {
-    monitorAllDrives();
+    drivemonitoring();
 
-    // Start a thread to monitor file executions
     const std::wstring system32Dir = L"C:\\Windows\\System32";
-    HANDLE hThread = CreateThread(NULL, 0, MonitorExecutions, const_cast<LPVOID>(static_cast<const void*>(&system32Dir)), 0, NULL);
+    HANDLE hThread = CreateThread(NULL, 0, passiverunninglogging, const_cast<LPVOID>(static_cast<const void*>(&system32Dir)), 0, NULL);
     if (hThread == NULL) {
         std::cerr << "Failed to create thread." << std::endl;
         return 1;
     }
 
-    // Wait for the thread to exit
     WaitForSingleObject(hThread, INFINITE);
     CloseHandle(hThread);
 
